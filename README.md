@@ -17,6 +17,14 @@ A calisthenics app for Push, Pull and Legs days. It shows a progression ladder f
 2. Tap the **⋮** menu, then **Add to home screen**, then **Install**.
 3. Open Calgoal from your home screen. It opens full screen and works without internet.
 
+## Install it on an iPhone
+
+1. Open the address in **Safari**.
+2. Tap the **Share** button (the square with an arrow), scroll down and tap **Add to Home Screen**, then **Add**.
+3. Open Calgoal from your home screen. It opens full screen and works without internet.
+
+Each phone keeps its own data. To copy it from one phone to another, use **Backup and restore**.
+
 ## Move your data from the Claude version
 
 1. In the Claude version, scroll to the bottom of any day and tap **Backup and restore**, then **Copy backup text**.
