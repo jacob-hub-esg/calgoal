@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rung by Rung</title>
+<meta name="description" content="Push, pull and legs calisthenics progressions, levels and session log.">
+<meta name="theme-color" content="#EDEFEA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111415" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preload" href="fonts/figtree-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/big-shoulders-display-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-day="pull">
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Rung by Rung</b><span>Push · Pull · Legs</span></div>
+    <nav class="tabs" aria-label="Training day">
+      <button class="tab" id="tab-push" data-day="push">Push</button>
+      <button class="tab" id="tab-pull" data-day="pull">Pull</button>
+      <button class="tab" id="tab-legs" data-day="legs">Legs</button>
+    </nav>
+  </div>
+</header>
+<main class="wrap" id="app"></main>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
