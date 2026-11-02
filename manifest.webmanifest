@@ -1,14 +1,14 @@
 {
-  "name": "Rung by Rung",
-  "short_name": "Rung by Rung",
+  "name": "Calgoal",
+  "short_name": "Calgoal",
   "description": "Push, pull and legs calisthenics progressions, levels and session log.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#EDEFEA",
-  "theme_color": "#EDEFEA",
+  "background_color": "#111415",
+  "theme_color": "#111415",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

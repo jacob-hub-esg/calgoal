@@ -1,4 +1,4 @@
-# Rung by Rung
+# Calgoal
 
 A calisthenics app for Push, Pull and Legs days. It shows a progression ladder for each exercise, keeps a session log, and tells you when to move up. It works offline, and everything you enter stays on your phone.
 
@@ -15,7 +15,7 @@ A calisthenics app for Push, Pull and Legs days. It shows a progression ladder f
 
 1. Open the address in **Chrome**.
 2. Tap the **⋮** menu, then **Add to home screen**, then **Install**.
-3. Open Rung by Rung from your home screen. It opens full screen and works without internet.
+3. Open Calgoal from your home screen. It opens full screen and works without internet.
 
 ## Move your data from the Claude version
 

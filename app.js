@@ -1,5 +1,5 @@
 "use strict";
-// Rung by Rung — app logic. Data lives in data.js; everything is saved on this phone.
+// Calgoal — app logic. (Backups and saved data keep the old internal name "rung-by-rung" so nothing is lost.) Data lives in data.js; everything is saved on this phone.
 
 const DAY_KEYS = ["push", "pull", "legs"];
 const LS_KEY = "rung-state-v2";
@@ -510,7 +510,7 @@ function checkRestore() {
   pendingRestore = null;
   if (!text) { msg.innerHTML = `<p class="err">Paste your backup text or choose a backup file first.</p>`; return; }
   let raw;
-  try { raw = JSON.parse(text); } catch (e) { msg.innerHTML = `<p class="err">That isn't a Rung by Rung backup. Copy the whole backup text and try again.</p>`; return; }
+  try { raw = JSON.parse(text); } catch (e) { msg.innerHTML = `<p class="err">That isn't a Calgoal backup. Copy the whole backup text and try again.</p>`; return; }
   const s = normalizeState(raw);
   const nLevels = Object.keys(s.levels).length, nAdded = new Set(DAY_KEYS.flatMap(d => s.adds[d])).size;
   const nLogs = Object.values(s.logs).reduce((a, l) => a + l.length, 0);
@@ -608,7 +608,7 @@ app.addEventListener("click", async ev => {
   if (t.closest("[data-dl]")) {
     const blob = new Blob([backupText()], { type: "application/json" });
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = `rung-by-rung-backup-${today()}.json`;
+    a.href = URL.createObjectURL(blob); a.download = `calgoal-backup-${today()}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     toast("Backup file saved to Downloads"); return;

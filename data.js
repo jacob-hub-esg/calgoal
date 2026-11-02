@@ -1,4 +1,4 @@
-// Rung by Rung — exercise data.
+// Calgoal — exercise data.
 // Each step is [name, target, form cue]. "start" is the default level (0-based step index).
 
 // Your plan: these exercises appear on your training days.

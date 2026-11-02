@@ -1,6 +1,6 @@
-// Rung by Rung offline support.
+// Calgoal offline support.
 // Change VERSION whenever you upload new app files, so phones pick up the update.
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = "rung-by-rung-" + VERSION;
 const FILES = [
   "./", "./index.html", "./styles.css", "./data.js", "./app.js", "./manifest.webmanifest",
