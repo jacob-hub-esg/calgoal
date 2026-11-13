@@ -188,6 +188,38 @@ select { font: inherit; padding: 8px 10px; border-radius: 6px; border: 1.5px sol
 .loglist .vals.hit { color: var(--good); }
 .del { appearance: none; background: none; border: 0; padding: 4px 8px; font-size: 1.2rem; line-height: 1; color: var(--muted); cursor: pointer; border-radius: 4px; }
 
+/* Exercise animations */
+.demo { --demo-bg: var(--bg); background: var(--demo-bg); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.demo[role="button"] { cursor: pointer; }
+.ca { display: block; width: 100%; height: auto; }
+.ca-floor { stroke: var(--line); stroke-width: 1.2; }
+.ca-bar { stroke: var(--muted); stroke-width: 2.4; stroke-linecap: round; }
+.ca-post { stroke: var(--line); stroke-width: 2; }
+.ca-box { fill: var(--line); }
+.ca-strap { stroke: var(--muted); stroke-width: 1; }
+.ca-ring { fill: none; stroke: var(--ink); stroke-width: 1.6; }
+.ca-band { fill: none; stroke: var(--warn); stroke-width: 1.2; }
+.ca-limb, .ca-torso, .ca-neck, .ca-gap { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.ca-near .ca-limb, .ca-torso, .ca-neck { stroke: var(--day); }
+.ca-near .ca-limb { stroke-width: 4.4; }
+.ca-far .ca-limb { stroke: color-mix(in srgb, var(--day) 42%, var(--demo-bg)); stroke-width: 4.4; }
+.ca-front .ca-far .ca-limb { stroke: var(--day); }
+.ca-gap { stroke: var(--demo-bg); stroke-width: 7.5; }
+.ca-torso { stroke-width: 8; }
+.ca-torso-f { fill: var(--day); stroke: var(--day); stroke-width: 3; stroke-linejoin: round; }
+.ca-neck { stroke-width: 3.5; }
+.ca-head { fill: var(--ink); }
+
+.now-top { display: grid; gap: 12px; }
+.now-top.has-demo { grid-template-columns: minmax(0, 46%) minmax(0, 1fr); align-items: center; }
+.now-info { min-width: 0; display: grid; gap: 2px; }
+.cue-now { margin: 6px 0 2px; font-size: .88rem; color: var(--muted); }
+.step-demo { max-width: 260px; }
+.card-demo { max-width: 240px; }
+.vid { display: inline-flex; align-items: center; gap: 6px; justify-self: start; font-weight: 600; font-size: .9rem; color: var(--day); text-decoration: none; padding: 6px 0; }
+.vid span { font-size: .75rem; }
+.open-body .btns { gap: 8px 18px; }
+
 /* Backup */
 textarea.mono { font-family: var(--mono); font-size: .78rem; line-height: 1.4; resize: vertical; }
 .filebtn { display: inline-flex; align-items: center; }

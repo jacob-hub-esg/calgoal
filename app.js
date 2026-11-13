@@ -210,7 +210,36 @@ function renderDay(d) {
     <div class="footlinks note"><button class="linkbtn" data-backup>Backup and restore</button><button class="linkbtn" id="reset">Reset all levels</button></div>`;
 }
 
-function ladderHTML(e, c, interactive) {
+// ---------- animations and videos ----------
+const REDUCE_MOTION = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+function animId(id, i) {
+  const m = typeof STEP_ANIM !== "undefined" && STEP_ANIM[id];
+  return m && m[i] && typeof MOVES !== "undefined" && MOVES[m[i]] ? m[i] : null;
+}
+function demoHTML(id, i, cls) {
+  const a = animId(id, i);
+  if (!a) return "";
+  const name = getEx(id).steps[i][0];
+  return `<div class="demo ${cls}" data-anim="${a}" data-label="${esc(name)}"${REDUCE_MOTION ? ` role="button" tabindex="0" title="Tap to play"` : ""}></div>`;
+}
+function mountDemos(scope) {
+  if (typeof CalAnim === "undefined") return;
+  scope.querySelectorAll(".demo[data-anim]").forEach(el => {
+    if (el.firstChild) return;
+    el._ctl = CalAnim.mount(el, MOVES[el.dataset.anim], { label: "Animation of " + el.dataset.label, paused: REDUCE_MOTION, at: REDUCE_MOTION ? 600 : 0 });
+  });
+}
+// A YouTube search for the step. Steps like "Assisted, partial range" get the exercise name in front.
+function videoHref(e, i) {
+  const s = e.steps[i][0];
+  let q = s.replace(/,/g, "");
+  const head = norm(s.split(",")[0]), main = norm(e.name.split(" ")[0]);
+  if ((s.includes(",") && !head.includes(main)) || /^(lift and hold|single-leg on a step|slow single-leg|loaded single-leg)$/i.test(s)) q = e.name + " " + q;
+  return "https://www.youtube.com/results?search_query=" + encodeURIComponent(q + " exercise");
+}
+const videoLink = (e, i) => `<a class="vid" href="${videoHref(e, i)}" target="_blank" rel="noopener"><span aria-hidden="true">▶</span> Watch a video</a>`;
+
+function ladderHTML(e, c, interactive, id) {
   return `<ol class="ladder">${e.steps.map((s, i) => {
     const cls = i < c ? "done" : i === c ? "cur" : "";
     if (!interactive) return `<li class="${cls}"><div class="rung"><span class="i">${i + 1}</span><span class="nm">${esc(s[0])}</span><span class="tg">${esc(s[1])}</span>${s[2] ? `<span class="cue">${esc(s[2])}</span>` : ""}</div></li>`;
@@ -218,9 +247,10 @@ function ladderHTML(e, c, interactive) {
     return `<li class="${cls}"><button class="rung" data-step="${i}" aria-expanded="${open}">
         <span class="i">${i + 1}</span><span class="nm">${esc(s[0])}</span><span class="tg">${esc(s[1])}</span>
       </button>
-      ${open ? `<div class="open-body">${s[2] ? `<p>${esc(s[2])}</p>` : ""}${i === c
-        ? `<span class="yours">Your level</span>`
-        : `<button class="setbtn" data-set="${i}">Set as my level</button>`}</div>` : ""}
+      ${open ? `<div class="open-body">${demoHTML(id, i, "step-demo")}${s[2] ? `<p>${esc(s[2])}</p>` : ""}
+        <div class="btns">${i === c
+          ? `<span class="yours">Your level</span>`
+          : `<button class="setbtn" data-set="${i}">Set as my level</button>`}${videoLink(e, i)}</div></div>` : ""}
     </li>`;
   }).join("")}</ol>`;
 }
@@ -241,8 +271,9 @@ function renderEx(id) {
   const ds = daysOf(id);
   setDay(ds.includes(currentDay) ? currentDay : ds[0]);
   const c = lvl(id), n = e.steps.length;
-  if (openStep === null) openStep = c;
+  if (openStep === null) openStep = -1;
   const cur = e.steps[c], nxt = e.steps[c + 1];
+  const demo = demoHTML(id, c, "now-demo");
   const tg = parseTarget(cur[1]);
   const removable = DAY_KEYS.filter(d => state.adds[d].includes(id) && !DAYS[d].list.includes(id));
   const rel = relatedHTML(e, id, true);
@@ -254,9 +285,13 @@ function renderEx(id) {
       <div class="days">${ds.map(d => `<span class="chip ${d}">${DAYS[d].label} day</span>`).join("")}${isAdded(id) ? `<span class="chip">Added by you</span>` : ""}</div>
     </div>
     <section class="now" aria-label="Your current level">
-      <div><div class="k">You're on · level ${c + 1} of ${n}</div>
-      <div class="big">${esc(cur[0])}</div>
-      <div class="tgt">${esc(cur[1])}</div></div>
+      <div class="now-top${demo ? " has-demo" : ""}">${demo}
+        <div class="now-info"><div class="k">You're on · level ${c + 1} of ${n}</div>
+        <div class="big">${esc(cur[0])}</div>
+        <div class="tgt">${esc(cur[1])}</div>
+        ${cur[2] ? `<p class="cue-now">${esc(cur[2])}</p>` : ""}
+        ${videoLink(e, c)}</div>
+      </div>
       <div class="next">${nxt
         ? `Next: <b>${esc(nxt[0])}</b>${nxt[1] ? ` (${esc(nxt[1])})` : ""}. ${tg ? `Move up once every set reaches ${fmtGoal(tg)} with clean form.` : `Move up once you can do every set with clean form.`}`
         : `Top of this ladder. Keep progressing with more reps, a slower tempo or added weight.`}</div>
@@ -265,11 +300,12 @@ function renderEx(id) {
     ${logListHTML(id)}
     <section class="sect">
       <h2>Progression</h2>
-      <p>Easiest first. Tap a step for form cues or to set it as your level.</p>
-      ${ladderHTML(e, c, true)}
+      <p>Easiest first. Tap a step to see how it's done or to set it as your level.</p>
+      ${ladderHTML(e, c, true, id)}
     </section>
     ${rel ? `<section class="sect"><h2>Related</h2><p>Exercises in your plan that train the same pattern or support this one.</p>${rel}</section>` : ""}
     ${removable.length ? `<section class="manage"><p class="note">You added this exercise.</p><div class="btns">${removable.map(d => `<button class="btn ghost" data-remove="${d}">Remove from ${DAYS[d].label} day</button>`).join("")}</div></section>` : ""}`;
+  mountDemos(app);
 }
 
 // ---------- add exercise ----------
@@ -433,6 +469,7 @@ function renderAddBody() {
     const r = add.result;
     html = `<div class="card">
         <div>${r.focus ? `<p class="eyebrow">${esc(r.focus)}</p>` : ""}<h2>${esc(r.name)}</h2></div>
+        ${demoHTML(add.resultId, add.resultStart, "card-demo")}
         ${ladderHTML(r, add.resultStart, false)}
         ${relatedHTML(r, null, false) ? `<div><p class="eyebrow" style="margin-bottom:8px">Related</p>${relatedHTML(r, null, false)}</div>` : ""}
         <div class="field"><label for="startlvl">Your level</label>
@@ -451,6 +488,7 @@ function renderAddBody() {
       <p class="note">Pick a suggestion as you type. The app has ready-made ladders for ${Object.keys(CATALOG).length + Object.keys(EX).length} exercises, and you can search for any step inside them.</p>`;
   }
   box.innerHTML = html;
+  mountDemos(box);
   const ta = document.getElementById("manual");
   if (ta) ta.addEventListener("input", () => { add.manualText = ta.value; });
 }
@@ -555,8 +593,10 @@ app.addEventListener("click", async ev => {
   const exId = () => location.hash.slice(4);
   const opt = t.closest("[data-opt]");
   if (opt) { pickOption(Number(opt.dataset.opt)); return; }
+  const dm = t.closest(".demo");
+  if (dm) { if (REDUCE_MOTION && dm._ctl) { if (dm._ctl.playing) dm._ctl.stop(); else dm._ctl.play(); } return; }
   const lv = t.closest("[data-level]");
-  if (lv) { const id = exId(); state.levels[id] = Number(lv.dataset.level); persist(); openStep = state.levels[id]; renderEx(id); return; }
+  if (lv) { const id = exId(); state.levels[id] = Number(lv.dataset.level); persist(); openStep = -1; renderEx(id); return; }
   const dl = t.closest("[data-dellog]");
   if (dl) {
     const id = exId();
@@ -564,7 +604,7 @@ app.addEventListener("click", async ev => {
     renderEx(id); return;
   }
   const set = t.closest("[data-set]");
-  if (set) { const id = exId(); state.levels[id] = Number(set.dataset.set); persist(); openStep = state.levels[id]; renderEx(id); return; }
+  if (set) { const id = exId(); state.levels[id] = Number(set.dataset.set); persist(); openStep = -1; renderEx(id); return; }
   const go = t.closest("[data-go]");
   if (go) { openStep = null; location.hash = "ex-" + go.dataset.go; return; }
   const step = t.closest("[data-step]");

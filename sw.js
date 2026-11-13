@@ -1,9 +1,9 @@
 // Calgoal offline support.
 // Change VERSION whenever you upload new app files, so phones pick up the update.
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE = "rung-by-rung-" + VERSION;
 const FILES = [
-  "./", "./index.html", "./styles.css", "./data.js", "./app.js", "./manifest.webmanifest",
+  "./", "./index.html", "./styles.css", "./data.js", "./anim.js", "./moves.js", "./app.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/apple-touch-icon.png",
   "./fonts/big-shoulders-display-latin-700-normal.woff2", "./fonts/big-shoulders-display-latin-800-normal.woff2",
   "./fonts/figtree-latin-400-normal.woff2", "./fonts/figtree-latin-500-normal.woff2",
