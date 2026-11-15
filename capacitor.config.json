@@ -1,0 +1,16 @@
+{
+  "appId": "app.calgoal",
+  "appName": "Calgoal",
+  "webDir": "www",
+  "backgroundColor": "#111415",
+  "android": {
+    "backgroundColor": "#111415"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
+    }
+  }
+}

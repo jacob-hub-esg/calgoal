@@ -1,6 +1,6 @@
 // Calgoal offline support.
 // Change VERSION whenever you upload new app files, so phones pick up the update.
-const VERSION = "v4";
+const VERSION = "v5";
 const CACHE = "rung-by-rung-" + VERSION;
 const FILES = [
   "./", "./index.html", "./styles.css", "./data.js", "./anim.js", "./moves.js", "./app.js", "./manifest.webmanifest",

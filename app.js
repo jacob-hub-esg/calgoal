@@ -4,7 +4,9 @@
 const DAY_KEYS = ["push", "pull", "legs"];
 const LS_KEY = "rung-state-v2";
 const app = document.getElementById("app");
-const CAN_DOWNLOAD = typeof Blob !== "undefined" && "download" in document.createElement("a");
+// True inside the installed Android app (Capacitor), false in a browser.
+const NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
+const CAN_DOWNLOAD = NATIVE || (typeof Blob !== "undefined" && "download" in document.createElement("a"));
 
 // ---------- helpers ----------
 const str = (v, n) => String(v ?? "").trim().slice(0, n);
@@ -646,6 +648,17 @@ app.addEventListener("click", async ev => {
   }
   if (t.id === "reset") { state.levels = {}; persist(); renderDay(currentDay); toast("Levels reset to the starting guesses"); return; }
   if (t.closest("[data-dl]")) {
+    if (NATIVE) {
+      // In the Android app: write the file, then let the person pick where to keep it (Drive, Files, email...).
+      try {
+        const r = await Capacitor.nativePromise("Filesystem", "writeFile", { path: `calgoal-backup-${today()}.json`, data: backupText(), directory: "CACHE", encoding: "utf8" });
+        await Capacitor.nativePromise("Share", "share", { title: "Calgoal backup", dialogTitle: "Save your Calgoal backup", files: [r.uri] });
+        toast("Backup ready. Keep it somewhere safe.");
+      } catch (e) {
+        if (!/cancel/i.test(String((e && e.message) || e))) toast("Couldn't save the file. Use Copy backup text instead.");
+      }
+      return;
+    }
     const blob = new Blob([backupText()], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = `calgoal-backup-${today()}.json`;
@@ -684,7 +697,8 @@ if (DAYS[startHash]) currentDay = startHash;
 route(true);
 
 // ---------- offline support ----------
-if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+// The Android app already has every file built in, so it skips the offline cache.
+if (!NATIVE && "serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 }
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});

@@ -1,0 +1,16 @@
+{
+  "name": "calgoal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Calgoal calisthenics app, packaged for Android with Capacitor.",
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/assets": "^4.0.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/share": "^8.0.3"
+  }
+}
