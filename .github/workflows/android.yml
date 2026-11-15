@@ -1,0 +1,90 @@
+# Builds the Calgoal Android app (Calgoal.apk) and publishes it on the repository's Releases page.
+# Run it from the Actions tab: "Build Android app" → "Run workflow".
+name: Build Android app
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Check the signing key is set up
+        env:
+          KEYSTORE: ${{ secrets.CALGOAL_KEYSTORE }}
+          KS_PASS: ${{ secrets.CALGOAL_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE" ] || [ -z "$KS_PASS" ]; then
+            echo "::error::Add the CALGOAL_KEYSTORE and CALGOAL_KEYSTORE_PASSWORD secrets in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - name: Install Capacitor
+        run: npm ci --no-audit --no-fund
+
+      - name: Collect the app files
+        run: |
+          rm -rf www && mkdir -p www
+          cp index.html styles.css data.js anim.js moves.js app.js manifest.webmanifest www/
+          cp -r icons fonts www/
+
+      - name: Create the Android project
+        run: |
+          rm -rf android assets && mkdir -p assets
+          cp android-icon.png assets/icon-only.png
+          cp android-icon-foreground.png assets/icon-foreground.png
+          cp android-icon-background.png assets/icon-background.png
+          cp android-splash.png assets/splash.png
+          cp android-splash.png assets/splash-dark.png
+          npx cap add android
+          npx capacitor-assets generate --android --iconBackgroundColor '#161A1B' --iconBackgroundColorDark '#161A1B' --splashBackgroundColor '#111415' --splashBackgroundColorDark '#111415'
+          node prepare-android.js ${{ github.run_number }}
+          npx cap sync android
+
+      - name: Build the app
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Sign the app
+        env:
+          KEYSTORE: ${{ secrets.CALGOAL_KEYSTORE }}
+          KS_PASS: ${{ secrets.CALGOAL_KEYSTORE_PASSWORD }}
+        run: |
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/calgoal.keystore"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/calgoal.keystore" --ks-pass env:KS_PASS --ks-key-alias calgoal --key-pass env:KS_PASS \
+            --out Calgoal.apk android/app/build/outputs/apk/release/app-release-unsigned.apk
+          "$BT/apksigner" verify Calgoal.apk
+          rm -f "$RUNNER_TEMP/calgoal.keystore"
+
+      - name: Publish on the Releases page
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-1.${{ github.run_number }}
+          name: Calgoal 1.${{ github.run_number }}
+          body: Install Calgoal.apk on your Android phone. It updates the version you already have.
+          files: Calgoal.apk
+          make_latest: true
