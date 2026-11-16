@@ -1,6 +1,6 @@
 # Calgoal
 
-A calisthenics app for Push, Pull and Legs days. It shows a progression ladder for each exercise, keeps a session log, and tells you when to move up. It works offline, and everything you enter stays on your phone.
+A calisthenics app for Push, Pull and Legs days (or your own training days). It shows a progression ladder for each exercise, walks you through each workout, keeps a session log with charts and a training calendar, and tells you when to move up. It works offline, and everything you enter stays on your phone.
 
 ## Put it online (one time)
 
@@ -23,16 +23,16 @@ A calisthenics app for Push, Pull and Legs days. It shows a progression ladder f
 2. Tap the **Share** button (the square with an arrow), scroll down and tap **Add to Home Screen**, then **Add**.
 3. Open Calgoal from your home screen. It opens full screen and works without internet.
 
-Each phone keeps its own data. To copy it from one phone to another, use **Backup and restore**.
+Each phone keeps its own data. To copy it from one phone to another, use **Backup and data**.
 
 ## Move your data from the Claude version
 
 1. In the Claude version, scroll to the bottom of any day and tap **Backup and restore**, then **Copy backup text**.
-2. In the phone app, tap **Backup and restore**, paste into the Restore box, and tap **Restore**, then **Replace**.
+2. In the phone app, tap **Backup and data**, paste into the Restore box, and tap **Restore**, then **Replace**.
 
 ## Keep your data safe
 
-Your levels and log live only on this phone. Use **Backup and restore → Save backup file** now and then. Always save a backup before you uninstall the app or clear Chrome's data.
+Your levels and log live only on this phone. Use **Backup and data → Save backup file** now and then. Always save a backup before you uninstall the app or clear Chrome's data.
 
 ## Updating the app later
 
@@ -57,6 +57,6 @@ Keep the signing key and password somewhere safe, outside this repository. Every
 2. Open the repository's **Releases** page on your phone and download **Calgoal.apk** from the newest release.
 3. Open the file. Allow your browser or Files app to install apps when Android asks. If Play Protect warns that the developer is unknown, choose **Install anyway**.
 
-The Android app keeps its own data, separate from the version installed from the website. Move it across with **Backup and restore**. In the Android app, **Save backup file** opens Android's share menu, so you can keep the file in Drive, Files or email.
+The Android app keeps its own data, separate from the version installed from the website. Move it across with **Backup and data**. In the Android app, **Save backup file** opens Android's share menu, so you can keep the file in Drive, Files or email.
 
 **Updating:** upload the changed files, run the workflow again, and install the new Calgoal.apk over the old one. Your data stays.
