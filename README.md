@@ -1,6 +1,6 @@
 # Calgoal
 
-A calisthenics app for Push, Pull and Legs days (or your own training days). It shows a progression ladder for each exercise, walks you through each workout, keeps a session log with charts and a training calendar, and tells you when to move up. It works offline, and everything you enter stays on your phone.
+A calisthenics app for Push, Pull and Legs days (or your own training days). It shows a progression ladder for each exercise, walks you through each workout, keeps a session log with charts and a training calendar, and tells you when to move up. A Skills screen shows which skills, like the muscle-up or front lever, your current levels unlock. It works offline, and everything you enter stays on your phone.
 
 ## Put it online (one time)
 

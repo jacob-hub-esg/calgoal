@@ -22,7 +22,7 @@ const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s));
 function toast(msg) {
   const el = document.getElementById("toast");
   el.textContent = msg; el.hidden = false;
-  clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 2800);
+  clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, msg.length > 60 ? 4800 : 2800);
 }
 
 const dateOf = s => new Date(s + "T12:00:00");
@@ -40,10 +40,11 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 // levels:  current step per exercise              custom: exercises the person wrote
 // names / targets: the person's own names and targets, laid over the built-in ones
 // logs:    sessions per exercise                  ups:    history of level changes
+// skillsSeen: unlocked skills already shown on the Skills screen
 function blankState() {
   const plan = {};
   for (const d of DEFAULT_DAYS) plan[d.key] = DAYS[d.key].list.slice();
-  return { setup: false, days: DEFAULT_DAYS.map(d => ({ key: d.key, label: d.label })), plan, levels: {}, custom: {}, names: {}, targets: {}, logs: {}, ups: [], backupAt: "", snooze: "" };
+  return { setup: false, days: DEFAULT_DAYS.map(d => ({ key: d.key, label: d.label })), plan, levels: {}, custom: {}, names: {}, targets: {}, logs: {}, ups: [], backupAt: "", snooze: "", skillsSeen: [] };
 }
 let state = blankState();
 let exCache = new Map();
@@ -120,6 +121,7 @@ function normalizeState(raw) {
   }
   if (isDate(raw.backupAt)) s.backupAt = raw.backupAt;
   if (isDate(raw.snooze)) s.snooze = raw.snooze;
+  if (Array.isArray(raw.skillsSeen)) s.skillsSeen = uniq(raw.skillsSeen.map(String)).filter(id => SKILLS.some(k => k.id === id));
   return s;
 }
 
@@ -422,11 +424,17 @@ function demoHTML(id, i, cls) {
   const name = getEx(id).steps[i][0];
   return `<div class="demo ${cls}" data-anim="${a}" data-label="${esc(name)}"${REDUCE_MOTION ? ` role="button" tabindex="0" title="Tap to play"` : ""}></div>`;
 }
+// Animations marked "lazy" only play while they're on screen, so a long list stays light.
+const lazyObs = "IntersectionObserver" in window ? new IntersectionObserver(entries => {
+  for (const en of entries) { const c = en.target._ctl; if (c) { if (en.isIntersecting) c.play(); else c.stop(); } }
+}, { threshold: 0.3 }) : null;
 function mountDemos(scope) {
   if (typeof CalAnim === "undefined") return;
   scope.querySelectorAll(".demo[data-anim]").forEach(el => {
     if (el.firstChild) return;
-    el._ctl = CalAnim.mount(el, MOVES[el.dataset.anim], { label: "Animation of " + el.dataset.label, paused: REDUCE_MOTION, at: REDUCE_MOTION ? 600 : 0 });
+    const lazy = el.classList.contains("lazy") && !!lazyObs && !REDUCE_MOTION;
+    el._ctl = CalAnim.mount(el, MOVES[el.dataset.anim], { label: "Animation of " + el.dataset.label, paused: REDUCE_MOTION || lazy, at: REDUCE_MOTION || lazy ? 600 : 0 });
+    if (lazy) lazyObs.observe(el);
   });
 }
 // A YouTube search for the step. Steps like "Assisted, partial range" get the exercise name in front.
@@ -513,6 +521,7 @@ function renderEx(id) {
       ${ladderHTML(e, lvl(id), true, id)}
     </section>
     ${rel ? `<section class="sect"><h2>Related</h2><p>Exercises in your plan that train the same pattern or support this one.</p>${rel}</section>` : ""}
+    ${unlocksHTML(id)}
     <section class="manage">
       ${renaming ? `<div class="field"><label for="nm-in">Name of this exercise</label>
           <div class="btns"><input id="nm-in" type="text" value="${esc(e.name)}" maxlength="60" autocomplete="off"><button class="btn primary" data-savename>Save</button>${state.names[id] ? `<button class="btn ghost" data-resetname>Use the original</button>` : ""}</div></div>` : ""}
@@ -698,6 +707,136 @@ function renderProgress() {
       ${ups.length ? `<ul class="loglist">${ups.map(u => { const e = getEx(u.id); return `<li class="up"><span class="dt">${esc(fmtDate(u.d))}</span><span class="what">${esc(e.name)}<small>${esc(e.steps[u.from] ? e.steps[u.from][0] : "")} → ${esc(e.steps[u.to] ? e.steps[u.to][0] : "")}</small></span></li>`; }).join("")}</ul>`
         : `<p>When you move up a step, it's recorded here.</p>`}
     </section>`;
+}
+
+// ---------- skills ----------
+// A requirement [exercise, step, amount] is met by logging that amount in one set of the step
+// (or a harder step on the same ladder), or by moving past a step whose target is at least that amount.
+let skillPick = null, skillFocus = null, knownMet = null;
+const skillById = id => SKILLS.find(k => k.id === id);
+function reqUnit(ex, step) { return parseTarget(getEx(ex).steps[step][1]) || { unit: "reps", per: "" }; }
+function reqText(ex, step, n) {
+  const tg = reqUnit(ex, step), per = tg.per ? ` per ${tg.per}` : "";
+  return tg.unit === "s" ? `${n}s hold${per}` : `${n}${per || (n === 1 ? " rep" : " reps")} in one set`;
+}
+// A step's name, with its exercise in front when the step name alone is unclear ("Sissy squats: Assisted, full range").
+function stepLabel(ex, step) {
+  const e = getEx(ex), nm = e.steps[step][0], head = norm(e.name.split(/\s+/)[0]);
+  return norm(nm).includes(head) ? nm : `${e.name}: ${nm}`;
+}
+function reqShort(ex, step, n) { return reqUnit(ex, step).unit === "s" ? `${n}s` : `× ${n}`; }
+function tracked(id) { return daysOf(id).length > 0 || Number.isInteger(state.levels[id]) || !!(state.logs[id] && state.logs[id].length); }
+function reqStatus([ex, step, n]) {
+  const e = getEx(ex);
+  if (!e || !e.steps[step]) return { met: false, p: 0, note: "" };
+  const unit = reqUnit(ex, step).unit, u = unit === "s" ? "s" : "";
+  const same = i => { const t = e.steps[i] && parseTarget(e.steps[i][1]); return t && t.unit === unit ? t : null; };
+  let best = 0;
+  for (const l of state.logs[ex] || []) if (l.step >= step && same(l.step)) best = Math.max(best, ...l.sets);
+  const c = lvl(ex);
+  let passed = false;
+  for (let i = step; i < c; i++) { const t = same(i); if (t && t.goal >= n) passed = true; }
+  if (best >= n) return { met: true, p: 1, note: `Done. Your best is ${best}${u}.` };
+  if (passed) return { met: true, p: 1, note: "Done. You've moved past this step." };
+  if (best > 0) return { met: false, p: Math.min(0.95, best / n), best, note: `Best so far: ${best}${u} of ${n}${u}.` };
+  if (!tracked(ex)) return { met: false, p: 0, note: `${e.name} isn't in your plan. Add it to a day to track this.` };
+  if (c < step) return { met: false, p: 0.5 * (c + 1) / (step + 1), note: `You're on ${e.steps[c][0]}, ${plural(step - c, "step")} before this one.` };
+  return { met: false, p: 0.5, note: c === step ? `Log a session of ${e.steps[step][0]} to check this.` : `Log a set of ${e.steps[step][0]} or harder to check this.` };
+}
+// open: every requirement met and not started yet · close: most of the way · training: already in the plan
+function skillState(sk) {
+  const rs = sk.req.map(reqStatus), met = rs.every(r => r.met);
+  const inPlan = daysOf(sk.ex).length > 0;
+  const training = inPlan && (!!CATALOG[sk.ex] || lvl(sk.ex) >= sk.at);
+  const p = rs.reduce((a, r) => a + r.p, 0) / rs.length;
+  return { rs, met, inPlan, training, p, kind: training ? "training" : met ? "open" : p >= 0.6 ? "close" : "locked" };
+}
+const openSkills = () => SKILLS.filter(sk => skillState(sk).kind === "open").map(sk => sk.id);
+function updateSkillsBadge() {
+  const b = document.getElementById("nav-skills");
+  if (!b) return;
+  const n = state.setup ? openSkills().filter(id => !state.skillsSeen.includes(id)).length : 0;
+  b.innerHTML = `Skills${n ? `<span class="badge">${n}<span class="vh"> newly unlocked</span></span>` : ""}`;
+}
+// After a change: names any skill that just became unlocked, for the toast.
+function unlockNote() {
+  const now = SKILLS.filter(sk => skillState(sk).met).map(sk => sk.id);
+  const fresh = knownMet ? now.filter(id => !knownMet.includes(id)) : [];
+  knownMet = now;
+  updateSkillsBadge();
+  const names = fresh.map(skillById).filter(sk => !skillState(sk).training).map(sk => sk.name);
+  return names.length ? `New skill unlocked: ${names.join(", ")}. Open Skills to start it.` : "";
+}
+const withNote = (msg, note) => [msg, note].filter(Boolean).join(". ").replace(/\.\. /g, ". ");
+
+function unlocksHTML(id) {
+  const list = SKILLS.filter(sk => sk.req.some(r => r[0] === id));
+  if (!list.length) return "";
+  return `<section class="sect"><h2>Unlocks</h2><p>Skills this exercise counts toward. Tap one to see everything it needs.</p>
+    <div class="related">${list.map(sk => {
+      const st = skillState(sk);
+      const mine = sk.req.map((r, i) => [r, st.rs[i]]).filter(([r]) => r[0] === id)
+        .map(([r, rs]) => `${rs.met ? "✓ " : ""}${esc(getEx(id).steps[r[1]][0])} ${esc(reqShort(...r))}`).join(", ");
+      return `<button class="rel" data-skillgo="${sk.id}">${esc(sk.name)}${st.met ? " ✓" : ""} <small>· needs ${mine}</small></button>`;
+    }).join("")}</div></section>`;
+}
+
+function skillCardHTML(sk, st) {
+  const e = getEx(sk.ex), demo = demoHTML(sk.ex, sk.show, "skill-demo lazy");
+  const inLadder = !CATALOG[sk.ex];
+  const reqs = sk.req.map((r, i) => {
+    const s = st.rs[i], re = getEx(r[0]);
+    return `<li class="${s.met ? "met" : ""}"><span class="mk" aria-hidden="true">${s.met ? "✓" : ""}</span>
+      <span class="rq"><span class="vh">${s.met ? "Done: " : "Not yet: "}</span><b>${esc(stepLabel(r[0], r[1]))}</b> · ${esc(reqText(...r))}
+        <small>${esc(s.note)}</small>
+        ${!s.met && s.best ? `<span class="rbar" aria-hidden="true"><i style="width:${Math.round(s.p * 100)}%"></i></span>` : ""}</span></li>`;
+  }).join("");
+  let act = "";
+  if (st.training) {
+    act = `<div class="btns"><button class="btn ghost small" data-go="${esc(sk.ex)}">Open ${esc(e.name)}</button>
+      <span class="note">On ${esc(withDay(daysOf(sk.ex).map(dayLabel).join(" and ")))}, level ${lvl(sk.ex) + 1} of ${e.steps.length}</span></div>`;
+  } else if (st.met && st.inPlan) {
+    act = `<div class="btns"><button class="btn good" data-skillstart="${sk.id}">Start ${esc(e.steps[sk.at][0])}</button></div>`;
+  } else if (st.met || skillPick === sk.id) {
+    act = `<div class="sk-add"><span>${st.met ? "Start it on" : "Add it to"}</span>${state.days.map(d =>
+      `<button class="btn small ghost" style="--day:${dayColor(d.key)}" data-skilladd="${sk.id}" data-d="${d.key}">${esc(d.label)}</button>`).join("")}</div>`;
+  } else if (!inLadder) {
+    act = `<button class="linkbtn tap" data-skillpick="${sk.id}">Add it anyway</button>`;
+  }
+  const where = inLadder ? `Step ${sk.at + 1} of your ${e.name} progression.` : `Starts with ${e.steps[sk.at][0]}.`;
+  const tag = st.kind === "open" ? `<span class="tag good">Unlocked</span>` : st.kind === "training" ? `<span class="tag">Training</span>`
+    : `<span class="tag">${st.rs.filter(r => r.met).length} of ${st.rs.length} done</span>`;
+  return `<article class="skill ${st.kind}" id="sk-${sk.id}">
+    <div class="sk-top${demo ? "" : " nodemo"}">${demo}
+      <div class="sk-info"><p class="eyebrow">${esc(sk.group)} · ${esc(sk.kit)}</p><h3>${esc(sk.name)}</h3>${tag}
+        <p>${esc(sk.about)} ${esc(where)}</p></div></div>
+    <ul class="reqs" aria-label="What ${esc(sk.name)} needs">${reqs}</ul>
+    ${act}</article>`;
+}
+
+function renderSkills() {
+  setDay(currentDay);
+  const all = SKILLS.map(sk => ({ sk, st: skillState(sk) }));
+  const groups = [
+    ["open", "Unlocked", "You've met every requirement. Pick a day to start training it."],
+    ["close", "Getting close", "Most of the way there. Keep logging the exercises listed."],
+    ["locked", "Still locked", "Build up the exercises listed first."],
+    ["training", "You're training", "Already in your plan."]
+  ];
+  const count = k => all.filter(x => x.st.kind === k).length;
+  app.innerHTML = `
+    <button class="back" data-back>← ${esc(dayName(currentDay))}</button>
+    <div class="exhead"><h1>Skills</h1></div>
+    <p class="lead">Skills you can start once the basics are strong enough. A requirement counts when you log that amount in one set, on that step or a harder one.</p>
+    <p class="note">${count("open")} unlocked · ${count("close")} getting close · ${count("locked")} locked · ${count("training")} in your plan. The amounts are guidelines, so trust how your joints feel too.</p>
+    ${groups.map(([k, title, text]) => {
+      const list = all.filter(x => x.st.kind === k).sort((a, b) => b.st.p - a.st.p);
+      return list.length ? `<section class="sect"><h2>${title}</h2><p>${text}</p><div class="skills">${list.map(x => skillCardHTML(x.sk, x.st)).join("")}</div></section>` : "";
+    }).join("")}`;
+  mountDemos(app);
+  const open = all.filter(x => x.st.kind === "open").map(x => x.sk.id);
+  if (open.some(id => !state.skillsSeen.includes(id))) { state.skillsSeen = uniq(state.skillsSeen.concat(open)); persist(); }
+  updateSkillsBadge();
 }
 
 // ---------- add exercise ----------
@@ -1000,6 +1139,7 @@ function finishWizard() {
   persist();
   currentDay = next[wiz.returnDay] && next[wiz.returnDay].length ? wiz.returnDay : state.days.find(d => next[d.key].length).key;
   wiz = null;
+  unlockNote();
   renderTabs();
   location.hash = currentDay;
   toast(edit ? "Plan updated" : "You're set. Tap Start workout to begin.");
@@ -1105,6 +1245,7 @@ function ctxId() {
 
 function route(fromNav = true) {
   killTimer();
+  if (lazyObs) lazyObs.disconnect();
   const h = location.hash.slice(1);
   const inSetup = h === "setup" || h.startsWith("setup-");
   // Until setup is finished, every address leads to it (except restoring a backup).
@@ -1118,11 +1259,19 @@ function route(fromNav = true) {
     const wk = h.match(/^workout-([a-z0-9]+)-(\d+|done)$/);
     if (h === "backup") renderBackup();
     else if (h === "progress") renderProgress();
+    else if (h === "skills") renderSkills();
     else if (wk && state.plan[wk[1]]) renderWorkout(wk[1], wk[2]);
     else if (h.startsWith("ex-") && getEx(h.slice(3)) && daysOf(h.slice(3)).length) renderEx(h.slice(3));
     else renderDay(state.plan[h] ? h : currentDay);
   }
+  document.querySelectorAll(".navbtn").forEach(b => b.setAttribute("aria-current", b.id === "nav-" + h ? "page" : "false"));
+  updateSkillsBadge();
   if (fromNav) window.scrollTo(0, 0);
+  if (h === "skills" && skillFocus) {
+    const card = document.getElementById("sk-" + skillFocus);
+    skillFocus = null;
+    if (card) { card.scrollIntoView({ block: "start" }); card.classList.add("flash"); setTimeout(() => card.classList.remove("flash"), 1600); }
+  }
 }
 const rerender = () => route(false);
 
@@ -1132,6 +1281,7 @@ document.querySelector(".tabs").addEventListener("click", ev => {
   if (location.hash === "#" + t.dataset.day) route(); else location.hash = t.dataset.day;
 });
 document.getElementById("nav-progress").addEventListener("click", () => { location.hash = "progress"; });
+document.getElementById("nav-skills").addEventListener("click", () => { location.hash = "skills"; });
 
 app.addEventListener("mousedown", ev => { if (ev.target.closest("[data-opt]")) ev.preventDefault(); });
 app.addEventListener("click", async ev => {
@@ -1157,13 +1307,13 @@ app.addEventListener("click", async ev => {
   if ((el = hit("[data-level]"))) {
     const id = ctxId(), n = Number(el.dataset.level), up = n > lvl(id);
     setLevel(id, n); openStep = -1; editTarget = -1; timedSets = 0;
-    toast(`${up ? "Moved up to" : "Now on"} ${getEx(id).steps[n][0]}`);
+    toast(withNote(`${up ? "Moved up to" : "Now on"} ${getEx(id).steps[n][0]}`, unlockNote()));
     rerender(); return;
   }
   if ((el = hit("[data-levelfor]"))) {
     const id = el.dataset.levelfor;
     setLevel(id, lvl(id) + 1);
-    toast(`Moved up to ${getEx(id).steps[lvl(id)][0]}`);
+    toast(withNote(`Moved up to ${getEx(id).steps[lvl(id)][0]}`, unlockNote()));
     rerender(); return;
   }
   if ((el = hit("[data-dellog]"))) {
@@ -1171,7 +1321,7 @@ app.addEventListener("click", async ev => {
     if (state.logs[id]) { state.logs[id].splice(Number(el.dataset.dellog), 1); if (!state.logs[id].length) delete state.logs[id]; persist(); }
     rerender(); return;
   }
-  if ((el = hit("[data-set]"))) { setLevel(ctxId(), Number(el.dataset.set)); openStep = -1; editTarget = -1; rerender(); return; }
+  if ((el = hit("[data-set]"))) { setLevel(ctxId(), Number(el.dataset.set)); openStep = -1; editTarget = -1; const note = unlockNote(); if (note) toast(note); rerender(); return; }
   if ((el = hit("[data-edittarget]"))) { editTarget = Number(el.dataset.edittarget); rerender(); const i = document.getElementById("tg-in"); if (i) i.focus(); return; }
   if ((el = hit("[data-savetarget]"))) {
     const id = ctxId(), i = Number(el.dataset.savetarget);
@@ -1183,7 +1333,7 @@ app.addEventListener("click", async ev => {
     const o = Object.assign({}, state.targets[id]);
     if (val === baseEx(id).steps[i][1]) delete o[i]; else o[i] = val;
     if (Object.keys(o).length) state.targets[id] = o; else delete state.targets[id];
-    persist(); editTarget = -1; rerender(); toast("Target saved"); return;
+    persist(); editTarget = -1; rerender(); toast(withNote("Target saved", unlockNote())); return;
   }
   if ((el = hit("[data-resettarget]"))) {
     const id = ctxId(), o = Object.assign({}, state.targets[id]);
@@ -1209,6 +1359,27 @@ app.addEventListener("click", async ev => {
   if (hit("[data-workout]")) { workoutStart(currentDay); return; }
   if ((el = hit("[data-wk]"))) { location.hash = `workout-${currentDay}-${el.dataset.wk}`; return; }
   if (hit("[data-snooze]")) { state.snooze = shiftDate(today(), 7); persist(); rerender(); return; }
+
+  // skills
+  if ((el = hit("[data-skillgo]"))) { skillFocus = el.dataset.skillgo; location.hash = "skills"; return; }
+  if ((el = hit("[data-skillpick]"))) { skillPick = el.dataset.skillpick; rerender(); return; }
+  if ((el = hit("[data-skillstart]"))) {
+    const sk = skillById(el.dataset.skillstart);
+    setLevel(sk.ex, sk.at); unlockNote();
+    toast(`Now on ${getEx(sk.ex).steps[sk.at][0]}`);
+    openStep = null; currentDay = daysOf(sk.ex).includes(currentDay) ? currentDay : daysOf(sk.ex)[0];
+    location.hash = "ex-" + sk.ex; return;
+  }
+  if ((el = hit("[data-skilladd]"))) {
+    const sk = skillById(el.dataset.skilladd), d = el.dataset.d;
+    if (!state.plan[d]) return;
+    if (!dayList(d).includes(sk.ex)) state.plan[d].push(sk.ex);
+    if (CATALOG[sk.ex] || lvl(sk.ex) < sk.at) state.levels[sk.ex] = sk.at;
+    persist(); unlockNote(); skillPick = null;
+    toast(`${sk.name} added to ${dayName(d)}`);
+    openStep = null; currentDay = d;
+    location.hash = "ex-" + sk.ex; return;
+  }
 
   // add exercise
   if (hit("[data-find]")) { findLadder(); return; }
@@ -1323,6 +1494,7 @@ app.addEventListener("click", async ev => {
     persist();
     currentDay = suggestDay();
     renderTabs();
+    unlockNote();
     toast("Backup restored"); location.hash = currentDay; return;
   }
 });
@@ -1340,6 +1512,8 @@ app.addEventListener("submit", ev => {
   saveLog(id, vals);
   if (document.activeElement) document.activeElement.blur();
   rerender();
+  const note = unlockNote();
+  if (note) toast(note);
 });
 
 // Setup screens: ticking an exercise, choosing its level, naming a day.
@@ -1374,6 +1548,7 @@ window.addEventListener("hashchange", () => route(true));
 const startHash = location.hash.slice(1);
 currentDay = state.plan[startHash] ? startHash : suggestDay();
 renderTabs();
+unlockNote();
 route(true);
 
 // The Android app already has every file built in, so it skips the offline cache.
